@@ -549,21 +549,21 @@
   // ---------- currencies ----------
   // "rate" = cuántos bolívares (VES) vale 1 unidad de esa moneda/canal — igual que la
   // tarjeta "Tasas del día" de GoldenLink. Actualízalo aquí cada vez que cambien las tasas.
-  // Últimos valores recibidos: 04/09/2026.
+  // Últimos valores recibidos: 29/09/2026.
   var CURRENCIES = [
-    { code:"MXN",  label:"México",         rate:52 },
-    { code:"USD",  label:"Estados Unidos", rate:843 },
-    { code:"EUR",  label:"Europa",         rate:992 },
-    { code:"BRL",  label:"Brasil",         rate:165 },
-    { code:"PEN",  label:"Perú",           rate:254.20 },
-    { code:"ARS",  label:"Argentina",      rate:0.524 },
-    { code:"COP",  label:"Colombia",       rate:3.70 },
-    { code:"CLP",  label:"Chile",          rate:0.93 },
-    { code:"ECU",  label:"Ecuador (USD)",  rate:843 },
-    { code:"PAN",  label:"Panamá (USD)",   rate:830 },
+    { code:"MXN",  label:"México",         rate:48.80 },
+    { code:"USD",  label:"Estados Unidos", rate:842 },
+    { code:"EUR",  label:"Europa",         rate:971 },
+    { code:"BRL",  label:"Brasil",         rate:164 },
+    { code:"PEN",  label:"Perú",           rate:251 },
+    { code:"ARS",  label:"Argentina",      rate:0.504 },
+    { code:"COP",  label:"Colombia",       rate:3.90 },
+    { code:"CLP",  label:"Chile",          rate:0.897 },
+    { code:"ECU",  label:"Ecuador (USD)",  rate:825 },
+    { code:"PAN",  label:"Panamá (USD)",   rate:825 },
     { code:"VES",  label:"Venezuela (Bs)", rate:1 },
-    { code:"PAYPAL", label:"PayPal",       rate:835 },
-    { code:"USDT", label:"USDT",           rate:843 }
+    { code:"PAYPAL", label:"PayPal",       rate:832.70 },
+    { code:"USDT", label:"USDT",           rate:842 }
   ];
   function byCode(c){ for(var i=0;i<CURRENCIES.length;i++){ if(CURRENCIES[i].code===c) return CURRENCIES[i]; } return CURRENCIES[0]; }
 
@@ -585,17 +585,17 @@
   //    Dólar->Brasil y Dólar->Perú) y actualizar GOOGLE_REF con esos números.
   //    SPECIAL se recalcula solo.
   var GOOGLE_REF = {
-    MXN_USD:  0.0592,   // 1 MXN = ? USD, referencia Google — actualizado 05/09/2026
-    MXN_COP:  185.73,   // 1 MXN = ? COP, referencia Google — actualizado 05/09/2026
-    EUR_USD:  1.16144,  // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
-    USDT_USD: 1.00,     // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
-    USD_BRL:  5.11015,  // 1 USD = ? BRL, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
-    USD_PEN:  3.38326   // 1 USD = ? PEN, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
+    MXN_USD:  0.05528739, // 1 MXN = ? USD, referencia Google — actualizado 29/09/2026
+    MXN_COP:  185.08,     // 1 MXN = ? COP, referencia Google — actualizado 29/09/2026
+    EUR_USD:  1.16144,    // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
+    USDT_USD: 1.00,       // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
+    USD_BRL:  5.11015,    // 1 USD = ? BRL, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
+    USD_PEN:  3.38326     // 1 USD = ? PEN, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
   };
   var SPECIAL = {
-    "MXN>COP":  GOOGLE_REF.MXN_COP * (1 - 0.12),         // Google - 12%
-    "MXN>USD":  GOOGLE_REF.MXN_USD * (1 - 0.10),         // Google - 10%
-    "MXN>USDT": GOOGLE_REF.MXN_USD * (1 - 0.05),         // Google - 5% (misma referencia que USD)
+    "MXN>COP":  GOOGLE_REF.MXN_COP * (1 - 0.1004),        // Google - 10.04% (ajustado 29/09/2026, antes -12%)
+    "MXN>USD":  GOOGLE_REF.MXN_USD * (1 - 0.0604),        // Google - 6.04% (ajustado 29/09/2026, antes -10%)
+    "MXN>USDT": GOOGLE_REF.MXN_USD * (1 - 0.0430),        // Google - 4.30% (ajustado 29/09/2026, antes -5%; misma referencia que USD)
     "USDT>MXN": (1 / GOOGLE_REF.MXN_USD) * (1 - 0.05),   // Google (USD->MXN) - 5%, independiente de MXN>USDT
     "EUR>USDT": GOOGLE_REF.EUR_USD * (1 - 0.06),         // Google - 6%
     "USDT>EUR": (1 / GOOGLE_REF.EUR_USD) * (1 - 0.05),   // Google (USD->EUR) - 5%, independiente de EUR>USDT
