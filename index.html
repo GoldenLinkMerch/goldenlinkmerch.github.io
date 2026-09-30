@@ -60,9 +60,11 @@
   }
 
   *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
+  html{scroll-behavior:smooth; overflow-x:hidden; max-width:100%;}
   body{
     margin:0;
+    overflow-x:hidden;
+    max-width:100%;
     background:var(--bg);
     color:var(--ink);
     font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -102,7 +104,14 @@
     backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
   }
-  .nav-row{display:flex; align-items:center; justify-content:space-between; gap:24px; padding:12px 0;}
+  .nav-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0;}
+  @media (max-width:480px){
+    .nav-row{gap:8px;}
+    .nav-cta-full{display:none;}
+    .brand-chip{padding:5px 8px;}
+    .brand-chip img{height:24px;}
+    #nav-wa-btn{padding:9px 12px; font-size:13px;}
+  }
   .brand-chip{
     background:#fff; border-radius:12px; padding:6px 10px;
     display:flex; align-items:center; box-shadow:var(--shadow);
@@ -223,27 +232,32 @@
   /* ---------- simulator ---------- */
   .sim-panel{
     background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
-    padding:30px; display:grid; grid-template-columns:1fr 1fr; gap:28px;
+    padding:30px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px;
   }
-  @media (max-width:820px){ .sim-panel{grid-template-columns:1fr;} }
-  .field{display:flex; flex-direction:column; gap:6px;}
+  @media (max-width:820px){ .sim-panel{grid-template-columns:minmax(0,1fr); padding:22px;} }
+  .field{display:flex; flex-direction:column; gap:6px; min-width:0;}
   .field label{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);}
   .field select, .field input{
     font-family:inherit; font-size:15.5px; padding:12px 13px; border-radius:10px;
     border:1px solid var(--line-strong); background:var(--bg); color:var(--ink);
+    width:100%; min-width:0; max-width:100%;
   }
-  .sim-form{display:flex; flex-direction:column; gap:16px;}
-  .sim-row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .sim-form{display:flex; flex-direction:column; gap:16px; min-width:0;}
+  .sim-row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; min-width:0;}
   .swap-btn{
     align-self:center; width:34px; height:34px; border-radius:50%; border:1px solid var(--line-strong);
     background:var(--bg); display:flex; align-items:center; justify-content:center; cursor:pointer; margin:-4px auto;
   }
   .sim-result{
     background:var(--bg-alt); border-radius:14px; padding:22px; display:flex; flex-direction:column; justify-content:space-between; gap:18px;
+    min-width:0;
   }
   .sim-result .amount{font-size:36px; font-weight:600; letter-spacing:-0.01em;}
   .sim-result .amount small{font-size:16px; color:var(--ink-soft); font-weight:500; margin-left:6px;}
   .sim-rate{font-size:13px; color:var(--ink-soft);}
+  @media (max-width:480px){
+    #sim-wa-btn{ white-space:normal; text-align:center; }
+  }
   .disclaimer{
     display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--ink-soft);
     background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-top:20px;
@@ -251,14 +265,15 @@
   .disclaimer svg{flex:none; width:16px; height:16px; margin-top:2px; color:var(--gold-deep);}
 
   /* ---------- contact ---------- */
-  .contact-grid{display:grid; grid-template-columns:0.9fr 1.1fr; gap:36px; align-items:start;}
-  @media (max-width:900px){ .contact-grid{grid-template-columns:1fr;} }
-  .contact-card{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:28px; box-shadow:var(--shadow);}
-  .contact-line{display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line);}
+  .contact-grid{display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); gap:36px; align-items:start;}
+  @media (max-width:900px){ .contact-grid{grid-template-columns:minmax(0,1fr);} }
+  .contact-card{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:28px; box-shadow:var(--shadow); min-width:0;}
+  .contact-line{display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); min-width:0;}
   .contact-line:first-of-type{border-top:none;}
   .contact-line svg{width:19px; height:19px; color:var(--gold-deep); flex:none;}
-  .contact-line a{text-decoration:none; font-weight:700;}
-  .contact-line span{display:block; font-size:12px; color:var(--ink-soft); font-weight:600;}
+  .contact-line > div{min-width:0;}
+  .contact-line a{text-decoration:none; font-weight:700; overflow-wrap:break-word; word-break:break-word;}
+  .contact-line span{display:block; font-size:12px; color:var(--ink-soft); font-weight:600; overflow-wrap:break-word; word-break:break-word;}
   .quote-form{display:flex; flex-direction:column; gap:14px;}
 
   footer{background:var(--ink); color:#f2f0ec; padding:52px 0 28px;}
@@ -297,7 +312,7 @@
       <a href="#contacto">Contacto</a>
     </nav>
     <a class="btn btn-gold btn-sm" id="nav-wa-btn" href="#" target="_blank" rel="noopener">
-      Cotizar por WhatsApp
+      Cotizar<span class="nav-cta-full"> por WhatsApp</span>
     </a>
   </div>
 </header>
