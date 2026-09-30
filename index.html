@@ -1,12 +1,4 @@
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GoldenLink</title>
-</head>
-<body>
-<style>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GoldenLink</title></head><body><style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
   :root{
@@ -157,6 +149,15 @@
   }
   .badge svg{width:16px; height:16px; color:var(--gold-deep); flex:none;}
 
+  .bcv-badge{
+    display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600;
+    color:var(--ink-soft); background:var(--surface); border:1px solid var(--line);
+    padding:7px 12px 7px 9px; border-radius:999px; box-shadow:var(--shadow); width:fit-content;
+    max-width:100%;
+  }
+  .bcv-badge svg{width:14px; height:14px; color:var(--gold-deep); flex:none;}
+  .bcv-badge strong{color:var(--ink); font-weight:700;}
+
   .network-card{
     background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow);
     padding:24px 24px 18px; max-width:520px; margin:0 auto 40px;
@@ -254,6 +255,16 @@
   }
   .sim-result .amount{font-size:36px; font-weight:600; letter-spacing:-0.01em;}
   .sim-result .amount small{font-size:16px; color:var(--ink-soft); font-weight:500; margin-left:6px;}
+  .amount-row{display:flex; align-items:baseline; gap:6px; min-width:0;}
+  .amount-input{
+    font-family:inherit; font-size:36px; font-weight:600; letter-spacing:-0.01em; color:var(--ink);
+    border:none; border-bottom:2px dashed var(--line-strong); background:transparent; padding:0 0 2px;
+    width:100%; min-width:0; -moz-appearance:textfield;
+  }
+  .amount-input:disabled{ color:var(--ink-soft); border-bottom-color:transparent; }
+  .amount-input::-webkit-outer-spin-button, .amount-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .amount-input:focus{ outline:none; border-bottom-color:var(--gold-deep); }
+  #sim-output-currency{font-size:16px; color:var(--ink-soft); font-weight:500; flex:none;}
   .sim-rate{font-size:13px; color:var(--ink-soft);}
   @media (max-width:480px){
     #sim-wa-btn{ white-space:normal; text-align:center; }
@@ -344,6 +355,10 @@
         <span class="eyebrow">Simulador</span>
         <h2>Calcula tu envío</h2>
         <p class="lead">Una referencia rápida para planear tu envío entre cualquiera de nuestras rutas.</p>
+        <span class="bcv-badge" id="bcv-badge" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/></svg>
+          Referencia oficial BCV: <strong id="bcv-badge-value">—</strong> Bs/USD
+        </span>
       </div>
 
       <div class="sim-panel">
@@ -370,7 +385,11 @@
         <div class="sim-result">
           <div>
             <div class="sim-rate" id="sim-rate-line">1 MXN ≈ 0.00 VES</div>
-            <div class="amount num" id="sim-output">0.00 <small>VES</small></div>
+            <label for="sim-output" class="visually-hidden">Monto a recibir</label>
+            <div class="amount-row">
+              <input type="number" class="amount-input num" id="sim-output" inputmode="decimal" min="0" step="any" value="0.00" />
+              <small id="sim-output-currency">VES</small>
+            </div>
             <div class="sim-note" id="sim-note" style="font-size:12px; color:var(--ink-soft); margin-top:4px;"></div>
           </div>
           <a class="btn btn-gold" id="sim-wa-btn" href="#" target="_blank" rel="noopener">Confirmar esta tasa por WhatsApp</a>
@@ -673,12 +692,47 @@
   var amountInput = document.getElementById('sim-amount');
   var rateLine = document.getElementById('sim-rate-line');
   var output = document.getElementById('sim-output');
+  var outputCurrency = document.getElementById('sim-output-currency');
   var simNote = document.getElementById('sim-note');
   var simWaBtn = document.getElementById('sim-wa-btn');
   var fmt = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
   var fmtRate = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 4 });
 
-  function recalc(){
+  // El simulador funciona en ambos sentidos: si la persona escribe en "Envías"
+  // calculamos lo que recibe; si escribe directo en "Recibe" (por ejemplo,
+  // "necesito que le lleguen 12,000 Bs"), calculamos cuánto debe enviar —
+  // ese monto se redondea siempre hacia arriba, al peso/unidad entero más
+  // cercano, para asegurar que el destinatario reciba al menos lo pedido.
+  function currentUnitRate(from, to){
+    var special = getSpecialRate(from.code, to.code);
+    if(special !== null) return special;
+    return from.rate / to.rate;
+  }
+
+  function updateShared(from, to, fLabel, tLabel, unitRate, amountFrom, amountTo){
+    rateLine.textContent = "1 " + fLabel + " ≈ " + fmtRate.format(unitRate) + " " + tLabel;
+    // PayPal -> Venezuela: PayPal descuenta su comisión antes de convertir, así
+    // que la tasa aplica sobre lo que realmente llega, no sobre lo enviado.
+    simNote.textContent = (from.code === "PAYPAL" && to.code === "VES") ? "(sobre el monto recibido)" : "";
+    var msg = "Hola GoldenLink, quiero confirmar la tasa para enviar " + fmt.format(amountFrom) + " " + fLabel +
+      " (" + from.label + ") a " + to.label + " (" + tLabel + "). El simulador me dio aprox. " + fmt.format(amountTo) + " " + tLabel + ".";
+    simWaBtn.href = waLink(msg);
+  }
+
+  function setNonComputable(from, to, fLabel, tLabel, amountFrom){
+    rateLine.textContent = "Ruta especial — sin tasa fija";
+    output.value = "";
+    output.disabled = true;
+    output.placeholder = "Consulta con un asesor";
+    outputCurrency.textContent = tLabel;
+    simNote.textContent = "";
+    var askMsg = "Hola GoldenLink, quiero cotizar un envío de " + fmt.format(amountFrom) + " " + fLabel +
+      " (" + from.label + ") a " + to.label + " (" + tLabel + "). ¿Cuál es la tasa de hoy para esta ruta?";
+    simWaBtn.href = waLink(askMsg);
+  }
+
+  // Recalcula "recibe" a partir de lo que la persona escribió en "envías".
+  function recalcFromSend(){
     var from = byCode(simFrom.value);
     var to = byCode(simTo.value);
     var amount = parseFloat(amountInput.value) || 0;
@@ -686,39 +740,63 @@
     var tLabel = to.code.replace("PAYPAL","USD");
 
     if(!isComputable(from.code, to.code)){
-      rateLine.textContent = "Ruta especial — sin tasa fija";
-      output.innerHTML = 'Consulta con un asesor <span style="white-space:nowrap;">vía WhatsApp</span>';
-      simNote.textContent = "";
-      var askMsg = "Hola GoldenLink, quiero cotizar un envío de " + fmt.format(amount) + " " + fLabel +
-        " (" + from.label + ") a " + to.label + " (" + tLabel + "). ¿Cuál es la tasa de hoy para esta ruta?";
-      simWaBtn.href = waLink(askMsg);
+      setNonComputable(from, to, fLabel, tLabel, amount);
       return;
     }
-
-    var special = getSpecialRate(from.code, to.code);
-    var unitRate, result;
-    if(special !== null){
-      unitRate = special;
-      result = amount * unitRate;
-    } else {
-      var anchorVES = amount * from.rate;
-      result = anchorVES / to.rate;
-      unitRate = from.rate / to.rate;
-    }
-    rateLine.textContent = "1 " + fLabel + " ≈ " + fmtRate.format(unitRate) + " " + tLabel;
-    output.innerHTML = fmt.format(result) + ' <small>' + tLabel + '</small>';
-    // PayPal -> Venezuela: PayPal descuenta su comisión antes de convertir, así
-    // que la tasa aplica sobre lo que realmente llega, no sobre lo enviado.
-    simNote.textContent = (from.code === "PAYPAL" && to.code === "VES") ? "(sobre el monto recibido)" : "";
-    var msg = "Hola GoldenLink, quiero confirmar la tasa para enviar " + fmt.format(amount) + " " + fLabel +
-      " (" + from.label + ") a " + to.label + " (" + tLabel + "). El simulador me dio aprox. " + fmt.format(result) + " " + tLabel + ".";
-    simWaBtn.href = waLink(msg);
+    output.disabled = false;
+    outputCurrency.textContent = tLabel;
+    var unitRate = currentUnitRate(from, to);
+    var result = amount * unitRate;
+    output.value = result.toFixed(2);
+    updateShared(from, to, fLabel, tLabel, unitRate, amount, result);
   }
-  [simFrom, simTo, amountInput].forEach(function(el){ el.addEventListener('input', recalc); el.addEventListener('change', recalc); });
+
+  // Recalcula "envías" a partir de lo que la persona escribió en "recibe"
+  // (redondeado hacia arriba a la unidad entera, para que le alcance).
+  function recalcFromReceive(){
+    var from = byCode(simFrom.value);
+    var to = byCode(simTo.value);
+    var amountTo = parseFloat(output.value) || 0;
+    var fLabel = from.code.replace("PAYPAL","USD");
+    var tLabel = to.code.replace("PAYPAL","USD");
+
+    if(!isComputable(from.code, to.code)){
+      setNonComputable(from, to, fLabel, tLabel, parseFloat(amountInput.value) || 0);
+      return;
+    }
+    var unitRate = currentUnitRate(from, to);
+    var neededFrom = unitRate > 0 ? Math.ceil(amountTo / unitRate) : 0;
+    amountInput.value = neededFrom;
+    updateShared(from, to, fLabel, tLabel, unitRate, neededFrom, amountTo);
+  }
+
+  amountInput.addEventListener('input', recalcFromSend);
+  amountInput.addEventListener('change', recalcFromSend);
+  output.addEventListener('input', recalcFromReceive);
+  output.addEventListener('change', recalcFromReceive);
+  [simFrom, simTo].forEach(function(el){ el.addEventListener('change', recalcFromSend); });
   document.getElementById('sim-swap').addEventListener('click', function(){
-    var a = simFrom.value; simFrom.value = simTo.value; simTo.value = a; recalc();
+    var a = simFrom.value; simFrom.value = simTo.value; simTo.value = a; recalcFromSend();
   });
-  recalc();
+  recalcFromSend();
+
+  (function(){
+    var badge = document.getElementById('bcv-badge');
+    var badgeValue = document.getElementById('bcv-badge-value');
+    if(!badge || !badgeValue || typeof fetch !== 'function') return;
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
+    fetch('https://ve.dolarapi.com/v1/dolares/oficial', controller ? { signal: controller.signal } : {})
+      .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
+      .then(function(data){
+        clearTimeout(timeoutId);
+        var rate = data && (data.promedio || data.venta || data.compra);
+        if(!rate || isNaN(rate)) return;
+        badgeValue.textContent = fmt.format(rate);
+        badge.style.display = 'inline-flex';
+      })
+      .catch(function(){ clearTimeout(timeoutId); });
+  })();
 
   document.getElementById('q-submit').addEventListener('click', function(){
     var name = document.getElementById('q-name').value.trim();
@@ -897,5 +975,4 @@
   document.getElementById('edge-count-label').textContent = EDGES.length + ' rutas activas';
 })();
 </script>
-</body>
-</html>
+</body></html>
