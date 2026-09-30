@@ -149,6 +149,7 @@
   }
   .badge svg{width:16px; height:16px; color:var(--gold-deep); flex:none;}
 
+  .rate-badges{display:flex; flex-wrap:wrap; gap:10px;}
   .bcv-badge{
     display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600;
     color:var(--ink-soft); background:var(--surface); border:1px solid var(--line);
@@ -355,10 +356,20 @@
         <span class="eyebrow">Simulador</span>
         <h2>Calcula tu envío</h2>
         <p class="lead">Una referencia rápida para planear tu envío entre cualquiera de nuestras rutas.</p>
-        <span class="bcv-badge" id="bcv-badge" style="display:none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/></svg>
-          Referencia oficial BCV: <strong id="bcv-badge-value">—</strong> Bs/USD
-        </span>
+        <div class="rate-badges">
+          <span class="bcv-badge" id="bcv-badge" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/></svg>
+            BCV USD: <strong id="bcv-badge-value">—</strong> Bs
+          </span>
+          <span class="bcv-badge" id="bcv-eur-badge" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/></svg>
+            BCV EUR: <strong id="bcv-eur-badge-value">—</strong> Bs
+          </span>
+          <span class="bcv-badge" id="bcv-par-badge" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-5 4 4 7-7M14 9h5v5"/></svg>
+            Paralelo (ref.): <strong id="bcv-par-badge-value">—</strong> Bs
+          </span>
+        </div>
       </div>
 
       <div class="sim-panel">
@@ -600,6 +611,7 @@
     { code:"ARS",  label:"Argentina",      rate:0.51 },
     { code:"COP",  label:"Colombia",       rate:3.90 },
     { code:"CLP",  label:"Chile",          rate:0.883 },
+    { code:"BOB",  label:"Bolivia",        rate:null }, // aún sin tasa comercial — ver isComputable()
     { code:"ECU",  label:"Ecuador (USD)",  rate:825 },
     { code:"PAN",  label:"Panamá (USD)",   rate:825 },
     { code:"VES",  label:"Venezuela (Bs)", rate:1 },
@@ -656,6 +668,10 @@
   // especiales de arriba. Todo lo demás no se calcula: se manda a un asesor.
   function isComputable(fromCode, toCode){
     if(fromCode === toCode) return true;
+    // Bolivia (BOB) todavía no tiene tasa comercial cargada — aparece en la
+    // calculadora como país disponible, pero toda ruta con BOB se manda a un
+    // asesor hasta que se cargue su tasa del día (igual que las demás).
+    if(fromCode === "BOB" || toCode === "BOB") return false;
     // Desde Venezuela hacia cualquier destino: siempre se cotiza con un
     // asesor. Las tasas del día están expresadas como "país -> Venezuela",
     // no al revés, así que Venezuela nunca es el origen en el cálculo.
@@ -781,21 +797,27 @@
   recalcFromSend();
 
   (function(){
-    var badge = document.getElementById('bcv-badge');
-    var badgeValue = document.getElementById('bcv-badge-value');
-    if(!badge || !badgeValue || typeof fetch !== 'function') return;
-    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
-    fetch('https://ve.dolarapi.com/v1/dolares/oficial', controller ? { signal: controller.signal } : {})
-      .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
-      .then(function(data){
-        clearTimeout(timeoutId);
-        var rate = data && (data.promedio || data.venta || data.compra);
-        if(!rate || isNaN(rate)) return;
-        badgeValue.textContent = fmt.format(rate);
-        badge.style.display = 'inline-flex';
-      })
-      .catch(function(){ clearTimeout(timeoutId); });
+    if(typeof fetch !== 'function') return;
+    function loadRateBadge(url, badgeId, valueId){
+      var badge = document.getElementById(badgeId);
+      var badgeValue = document.getElementById(valueId);
+      if(!badge || !badgeValue) return;
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
+      fetch(url, controller ? { signal: controller.signal } : {})
+        .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
+        .then(function(data){
+          clearTimeout(timeoutId);
+          var rate = data && (data.promedio || data.venta || data.compra);
+          if(!rate || isNaN(rate)) return;
+          badgeValue.textContent = fmt.format(rate);
+          badge.style.display = 'inline-flex';
+        })
+        .catch(function(){ clearTimeout(timeoutId); });
+    }
+    loadRateBadge('https://ve.dolarapi.com/v1/dolares/oficial', 'bcv-badge', 'bcv-badge-value');
+    loadRateBadge('https://ve.dolarapi.com/v1/euros/oficial', 'bcv-eur-badge', 'bcv-eur-badge-value');
+    loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value');
   })();
 
   document.getElementById('q-submit').addEventListener('click', function(){
@@ -819,6 +841,7 @@
     brasil: '<rect width="24" height="16" fill="#009739"/><polygon points="12,2 22,8 12,14 2,8" fill="#FEDD00"/><circle cx="12" cy="8" r="3" fill="#012169"/>',
     peru: '<rect width="8" height="16" fill="#D91023"/><rect x="8" width="8" height="16" fill="#fff"/><rect x="16" width="8" height="16" fill="#D91023"/>',
     chile: '<rect width="24" height="16" fill="#fff"/><rect y="8" width="24" height="8" fill="#D52B1E"/><rect width="8" height="8" fill="#0039A6"/><text x="4" y="6.3" font-size="5" text-anchor="middle" fill="#fff">&#9733;</text>',
+    bolivia: '<rect width="24" height="5.34" fill="#DA291C"/><rect y="5.33" width="24" height="5.34" fill="#F9E300"/><rect y="10.66" width="24" height="5.34" fill="#007A33"/>',
     ecuador: '<rect width="24" height="8" fill="#FCD116"/><rect y="8" width="24" height="4" fill="#003893"/><rect y="12" width="24" height="4" fill="#CE1126"/>',
     panama: '<rect width="12" height="8" fill="#fff"/><rect x="12" width="12" height="8" fill="#DA121A"/><rect y="8" width="12" height="8" fill="#075AAB"/><rect x="12" y="8" width="12" height="8" fill="#fff"/><text x="6" y="6.3" font-size="4.2" text-anchor="middle" fill="#075AAB">&#9733;</text><text x="18" y="14.3" font-size="4.2" text-anchor="middle" fill="#DA121A">&#9733;</text>',
     argentina: '<rect width="24" height="5.34" fill="#74ACDF"/><rect y="5.33" width="24" height="5.34" fill="#fff"/><rect y="10.66" width="24" height="5.34" fill="#74ACDF"/><circle cx="12" cy="8" r="2" fill="#F6B40E"/>'
@@ -859,6 +882,7 @@
     { key:"brasil",     label:"Brasil" },
     { key:"peru",       label:"Perú" },
     { key:"chile",      label:"Chile" },
+    { key:"bolivia",    label:"Bolivia" },
     { key:"ecuador",    label:"Ecuador" },
     { key:"panama",     label:"Panamá" },
     { key:"argentina",  label:"Argentina" },
