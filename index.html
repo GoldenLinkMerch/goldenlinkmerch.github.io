@@ -1,4 +1,5 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GoldenLink</title></head><body><style>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GoldenLink</title></head><body><title>GoldenLink</title>
+<style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
   :root{
@@ -663,14 +664,136 @@
     var v = SPECIAL[fromCode + ">" + toCode];
     return (v === undefined) ? null : v;
   }
+
+  // ==========================================================================
+  // RUTAS EN VIVO: Argentina y Bolivia <-> USDT/USD/México
+  // ==========================================================================
+  // Argentina y Bolivia sí tienen una referencia que se actualiza sola (no hay
+  // que buscarla en Google): dólar cripto para Argentina, casa "binance" de
+  // dolarapi para Bolivia (fuente directa de Binance P2P, verificada).
+  // Mientras el margen de una ruta esté en null, esa ruta se manda a un
+  // asesor aunque la fuente en vivo ya haya cargado — nunca se inventa un
+  // número. Cuando Alberto confirme el %, se pone aquí y esa ruta se activa
+  // sola, sin tocar nada más.
+  var LIVE_RATES = {
+    ARS: { compra: null, venta: null }, // dólar cripto Argentina — se llena solo al cargar la página
+    BOB: { compra: null, venta: null }  // Binance P2P Bolivia — se llena solo al cargar la página
+  };
+  // Config por ruta. null = todavía no confirmada por Alberto -> se manda a
+  // un asesor (nunca se inventa una tasa).
+  //   base: "venta" o "compra" de dolarapi — cuál de los dos lados del
+  //         mercado corresponde a esta dirección (venta = lo que cuesta
+  //         comprar USD/USDT con moneda local; compra = lo que se recibe al
+  //         vender USD/USDT por moneda local).
+  //   sign: +1 si los porcentajes se SUMAN sobre el precio base (moneda
+  //         local -> USDT/USD/otro), -1 si se RESTAN (USDT/USD -> moneda
+  //         local). No son recíprocas entre sí: cada dirección tiene su
+  //         propio precio base y su propio costo.
+  //   spread/intermediacion/costo: porcentajes en decimal, compuestos en
+  //   cadena (ej. base * (1±spread) * (1±intermediacion) * (1±costo)),
+  //   igual que en los ejemplos que confirmó Alberto.
+  var LIVE_MARGIN = {
+    "ARS>USDT": { base:"venta",  sign:+1, spread:0.005, intermediacion:0.03, costo:0.055 },
+    "USDT>ARS": { base:"compra", sign:-1, spread:0.005, intermediacion:0.03, costo:0.05  },
+    // ARS>USD y BOB>USD son USD real (ej. Zelle en USA), no USDT: llevan el
+    // mismo esquema de ARS>USDT/BOB>USDT más un 1% extra (usdFee) porque
+    // convertir esos USDT a USD real le cuesta a Alberto ese 1% adicional
+    // (ej. para que a alguien le lleguen 100 USD por Zelle, a Alberto le
+    // cobran 101 USDT).
+    "ARS>USD":  { base:"venta",  sign:+1, spread:0.005, intermediacion:0.03, costo:0.055, usdFee:0.01 },
+    "BOB>USDT": { base:"venta",  sign:+1, spread:0.005, intermediacion:0.03, costo:0.055 }, // mismo esquema, fuente Binance Bolivia
+    "USDT>BOB": { base:"compra", sign:-1, spread:0.005, intermediacion:0.03, costo:0.05  },
+    "BOB>USD":  { base:"venta",  sign:+1, spread:0.005, intermediacion:0.03, costo:0.055, usdFee:0.01 }
+    // ARS>MXN, MXN>ARS, BOB>MXN y MXN>BOB no van aquí: se arman encadenando
+    // las tasas de arriba con MXN_USDT_SPOT (ver más abajo).
+  };
+  // Ancla MXN/USD para las rutas cruzadas con México (ARS<->MXN, BOB<->MXN).
+  // Se llena sola desde exchangerate-api.com (ver loadMxnSpot más abajo) —
+  // NO se usa mx.dolarapi.com porque esa fuente trae el tipo de cambio
+  // OFICIAL de Banxico y se vio desactualizada por semanas (revisado:
+  // mostraba ~16.88 MXN/USD cuando el mercado real ya estaba en ~18.02-18.07).
+  // exchangerate-api.com sí se actualiza a diario y no requiere API key.
+  // Mientras esté en null (falló la carga o aún no responde), las 4 rutas
+  // de México se mandan a un asesor — nunca se inventa un número.
+  var MXN_USDT_SPOT = null;
+  function liveFactor(cfg){
+    var f = 1;
+    f *= (1 + cfg.sign * cfg.spread);
+    f *= (1 + cfg.sign * cfg.intermediacion);
+    f *= (1 + cfg.sign * cfg.costo);
+    if(cfg.usdFee) f *= (1 + cfg.usdFee); // costo extra de convertir USDT a USD real (Zelle, etc.)
+    return f;
+  }
+  function liveBase(countryKey, field){
+    var v = LIVE_RATES[countryKey] && LIVE_RATES[countryKey][field];
+    return (v === undefined || v === null) ? null : v;
+  }
+  function getLiveSpecialRate(fromCode, toCode){
+    var key = fromCode + ">" + toCode;
+
+    // Cruces con México: ARS/BOB -> USDT (ya con margen) -> MXN usando la
+    // ancla MXN_USDT_SPOT, sin colchón extra (equivale a la fórmula de
+    // "USDT -> Moneda" que ya usamos: nada de spread en esta salida).
+    //   monto_ARS / tasa_ARS>USDT_en_ARS-por-USDT = monto_USDT
+    //   monto_USDT * MXN_USDT_SPOT = monto_MXN
+    if(key === "ARS>MXN" || key === "BOB>MXN"){
+      if(MXN_USDT_SPOT === null) return null;
+      var srcCode = (key === "ARS>MXN") ? "ARS" : "BOB";
+      var toUsdtRate = getLiveSpecialRate(srcCode, "USDT"); // USDT por 1 ARS/BOB, ya con margen
+      if(toUsdtRate === null) return null;
+      return toUsdtRate * MXN_USDT_SPOT;
+    }
+    // México -> ARS/BOB: a la ancla se le suma un colchón de 0.5% antes de
+    // dividir (equivale a la fórmula de "Moneda -> USDT" que ya usamos: el
+    // colchón va cuando MXN es quien "compra" USDT), y ya con los USDT se
+    // aplica la tasa USDT->ARS/BOB (que ya trae su propio margen).
+    //   monto_MXN / (MXN_USDT_SPOT * 1.005) = monto_USDT
+    //   monto_USDT * tasa_USDT>ARS/BOB = monto_ARS/BOB
+    if(key === "MXN>ARS" || key === "MXN>BOB"){
+      if(MXN_USDT_SPOT === null) return null;
+      var dstCode = (key === "MXN>ARS") ? "ARS" : "BOB";
+      var fromUsdtRate = getLiveSpecialRate("USDT", dstCode); // ARS/BOB por 1 USDT, ya con margen
+      if(fromUsdtRate === null) return null;
+      return fromUsdtRate / (MXN_USDT_SPOT * 1.005);
+    }
+
+    if(!(key in LIVE_MARGIN)) return null;
+    var cfg = LIVE_MARGIN[key];
+    if(cfg === null) return null; // falta que Alberto confirme % (y fuente) de esta ruta
+
+    if(key === "ARS>USDT" || key === "ARS>USD"){
+      var baseArsVenta = liveBase("ARS", cfg.base);
+      if(baseArsVenta === null) return null;
+      return 1 / (baseArsVenta * liveFactor(cfg));
+    }
+    if(key === "USDT>ARS"){
+      var baseArsCompra = liveBase("ARS", cfg.base);
+      if(baseArsCompra === null) return null;
+      return baseArsCompra * liveFactor(cfg);
+    }
+    if(key === "BOB>USDT" || key === "BOB>USD"){
+      var baseBobVenta = liveBase("BOB", cfg.base);
+      if(baseBobVenta === null) return null;
+      return 1 / (baseBobVenta * liveFactor(cfg));
+    }
+    if(key === "USDT>BOB"){
+      var baseBobCompra = liveBase("BOB", cfg.base);
+      if(baseBobCompra === null) return null;
+      return baseBobCompra * liveFactor(cfg);
+    }
+    return null;
+  }
   // Rutas que el simulador puede calcular: cualquier país/canal -> Venezuela
   // (tabla de "tasas del día"), el mismo código consigo mismo, y las rutas
   // especiales de arriba. Todo lo demás no se calcula: se manda a un asesor.
   function isComputable(fromCode, toCode){
     if(fromCode === toCode) return true;
-    // Bolivia (BOB) todavía no tiene tasa comercial cargada — aparece en la
-    // calculadora como país disponible, pero toda ruta con BOB se manda a un
-    // asesor hasta que se cargue su tasa del día (igual que las demás).
+    // Rutas nuevas en vivo (Argentina/Bolivia <-> USDT, USD, México): su
+    // propia función ya revisa si la fuente en vivo y el margen están listos.
+    if(getLiveSpecialRate(fromCode, toCode) !== null) return true;
+    // Bolivia (BOB) fuera de esas rutas nuevas todavía no tiene tasa
+    // comercial cargada — se manda a un asesor hasta que se cargue (igual
+    // que las demás).
     if(fromCode === "BOB" || toCode === "BOB") return false;
     // Desde Venezuela hacia cualquier destino: siempre se cotiza con un
     // asesor. Las tasas del día están expresadas como "país -> Venezuela",
@@ -720,6 +843,8 @@
   // ese monto se redondea siempre hacia arriba, al peso/unidad entero más
   // cercano, para asegurar que el destinatario reciba al menos lo pedido.
   function currentUnitRate(from, to){
+    var live = getLiveSpecialRate(from.code, to.code);
+    if(live !== null) return live;
     var special = getSpecialRate(from.code, to.code);
     if(special !== null) return special;
     return from.rate / to.rate;
@@ -818,6 +943,44 @@
     loadRateBadge('https://ve.dolarapi.com/v1/dolares/oficial', 'bcv-badge', 'bcv-badge-value');
     loadRateBadge('https://ve.dolarapi.com/v1/euros/oficial', 'bcv-eur-badge', 'bcv-eur-badge-value');
     loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value');
+
+    // Rutas en vivo de Argentina y Bolivia (ver LIVE_RATES / LIVE_MARGIN más
+    // arriba). Si falla o tarda, esa ruta se queda mandando a un asesor —
+    // igual que si el margen todavía no estuviera definido.
+    function loadLiveRate(url, countryKey){
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
+      fetch(url, controller ? { signal: controller.signal } : {})
+        .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
+        .then(function(data){
+          clearTimeout(timeoutId);
+          if(!data || isNaN(data.compra) || isNaN(data.venta)) return;
+          LIVE_RATES[countryKey] = { compra: data.compra, venta: data.venta };
+          recalcFromSend(); // por si la ruta ya seleccionada dependía de esta tasa
+        })
+        .catch(function(){ clearTimeout(timeoutId); });
+    }
+    loadLiveRate('https://dolarapi.com/v1/dolares/cripto', 'ARS');
+    loadLiveRate('https://bo.dolarapi.com/v1/dolares/binance', 'BOB');
+
+    // Ancla MXN/USD para las rutas cruzadas con México (ver MXN_USDT_SPOT
+    // más arriba). Fuente distinta a las de arriba: aquí no hay compra/venta,
+    // solo un tipo de cambio de mercado (se actualiza una vez al día).
+    function loadMxnSpot(){
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
+      fetch('https://open.er-api.com/v6/latest/USD', controller ? { signal: controller.signal } : {})
+        .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
+        .then(function(data){
+          clearTimeout(timeoutId);
+          var rate = data && data.rates && data.rates.MXN;
+          if(!rate || isNaN(rate)) return;
+          MXN_USDT_SPOT = rate;
+          recalcFromSend();
+        })
+        .catch(function(){ clearTimeout(timeoutId); });
+    }
+    loadMxnSpot();
   })();
 
   document.getElementById('q-submit').addEventListener('click', function(){
