@@ -679,6 +679,12 @@
     ARS: { compra: null, venta: null }, // dólar cripto Argentina — se llena solo al cargar la página
     BOB: { compra: null, venta: null }  // Binance P2P Bolivia — se llena solo al cargar la página
   };
+  // Marca de tiempo (Date.now()) de la última vez que cada fuente en vivo
+  // respondió con éxito. Sirve para mostrarle al cliente "actualizada hace
+  // X min" junto a la tasa (ver freshnessLabel más abajo) y para saber qué
+  // tan vieja está una fuente. MXN_EUR cubre MXN_USDT_SPOT y EUR_USD_SPOT
+  // juntos porque ambos vienen del mismo fetch (open.er-api.com).
+  var FRESH_AT = { ARS: null, BOB: null, MXN_EUR: null, VES_PARALELO: null };
   // Config por ruta. null = todavía no confirmada por Alberto -> se manda a
   // un asesor (nunca se inventa una tasa).
   //   base: "venta" o "compra" de dolarapi — cuál de los dos lados del
@@ -880,11 +886,49 @@
     return from.rate / to.rate;
   }
 
+  // Qué marcas de FRESH_AT le corresponden a cada ruta en vivo (ver
+  // FRESH_AT más arriba). null = no es una ruta en vivo (tasa del día
+  // manual): no se muestra nada de frescura, igual que antes.
+  function routeFreshKeys(fromCode, toCode){
+    var key = fromCode + ">" + toCode;
+    if(key === "ARS>USDT" || key === "USDT>ARS" || key === "ARS>USD") return ["ARS"];
+    if(key === "BOB>USDT" || key === "USDT>BOB" || key === "BOB>USD") return ["BOB"];
+    if(key === "ARS>MXN" || key === "MXN>ARS") return ["ARS", "MXN_EUR"];
+    if(key === "BOB>MXN" || key === "MXN>BOB") return ["BOB", "MXN_EUR"];
+    if(key === "EUR>MXN" || key === "MXN>EUR") return ["MXN_EUR"];
+    if(key === "VES>EUR") return ["VES_PARALELO", "MXN_EUR"];
+    return null;
+  }
+  function freshnessLabel(fromCode, toCode){
+    var keys = routeFreshKeys(fromCode, toCode);
+    if(!keys) return null;
+    var oldest = null;
+    for(var i=0;i<keys.length;i++){
+      var t = FRESH_AT[keys[i]];
+      if(t === null) return null;
+      if(oldest === null || t < oldest) oldest = t;
+    }
+    var mins = Math.round((Date.now() - oldest) / 60000);
+    if(mins < 1) return "Tasa en vivo · actualizada hace instantes";
+    if(mins === 1) return "Tasa en vivo · actualizada hace 1 min";
+    if(mins < 60) return "Tasa en vivo · actualizada hace " + mins + " min";
+    var hrs = Math.round(mins / 60);
+    return "Tasa en vivo · actualizada hace " + hrs + (hrs === 1 ? " hora" : " horas");
+  }
+
   function updateShared(from, to, fLabel, tLabel, unitRate, amountFrom, amountTo){
     rateLine.textContent = "1 " + fLabel + " ≈ " + fmtRate.format(unitRate) + " " + tLabel;
     // PayPal -> Venezuela: PayPal descuenta su comisión antes de convertir, así
     // que la tasa aplica sobre lo que realmente llega, no sobre lo enviado.
-    simNote.textContent = (from.code === "PAYPAL" && to.code === "VES") ? "(sobre el monto recibido)" : "";
+    // Para las rutas en vivo, en cambio, mostramos qué tan fresca está la fuente.
+    var fresh = freshnessLabel(from.code, to.code);
+    if(from.code === "PAYPAL" && to.code === "VES"){
+      simNote.textContent = "(sobre el monto recibido)";
+    } else if(fresh){
+      simNote.textContent = fresh;
+    } else {
+      simNote.textContent = "";
+    }
     var msg = "Hola GoldenLink, quiero confirmar la tasa para enviar " + fmt.format(amountFrom) + " " + fLabel +
       " (" + from.label + ") a " + to.label + " (" + tLabel + "). El simulador me dio aprox. " + fmt.format(amountTo) + " " + tLabel + ".";
     simWaBtn.href = waLink(msg);
@@ -973,13 +1017,6 @@
         })
         .catch(function(){ clearTimeout(timeoutId); });
     }
-    loadRateBadge('https://ve.dolarapi.com/v1/dolares/oficial', 'bcv-badge', 'bcv-badge-value');
-    loadRateBadge('https://ve.dolarapi.com/v1/euros/oficial', 'bcv-eur-badge', 'bcv-eur-badge-value');
-    loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value', function(rate){
-      VES_PARALELO = rate;
-      recalcFromSend(); // por si la ruta Bs -> Euros ya seleccionada dependía de esta tasa
-    });
-
     // Rutas en vivo de Argentina y Bolivia (ver LIVE_RATES / LIVE_MARGIN más
     // arriba). Si falla o tarda, esa ruta se queda mandando a un asesor —
     // igual que si el margen todavía no estuviera definido.
@@ -992,17 +1029,17 @@
           clearTimeout(timeoutId);
           if(!data || isNaN(data.compra) || isNaN(data.venta)) return;
           LIVE_RATES[countryKey] = { compra: data.compra, venta: data.venta };
+          FRESH_AT[countryKey] = Date.now();
           recalcFromSend(); // por si la ruta ya seleccionada dependía de esta tasa
         })
         .catch(function(){ clearTimeout(timeoutId); });
     }
-    loadLiveRate('https://dolarapi.com/v1/dolares/cripto', 'ARS');
-    loadLiveRate('https://bo.dolarapi.com/v1/dolares/binance', 'BOB');
 
     // Ancla MXN/USD y EUR/USD para las rutas cruzadas con México y Europa
     // (ver MXN_USDT_SPOT / EUR_USD_SPOT más arriba). Una sola llamada trae
     // ambas — no hay compra/venta aquí, solo un tipo de cambio de mercado
-    // (se actualiza una vez al día).
+    // (se actualiza una vez al día en la fuente, pero igual la volvemos a
+    // consultar cada rato para detectar ese cambio pronto).
     function loadUsdSpotRates(){
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
@@ -1014,11 +1051,99 @@
           if(!rates) return;
           if(!isNaN(rates.MXN) && rates.MXN) MXN_USDT_SPOT = rates.MXN;
           if(!isNaN(rates.EUR) && rates.EUR) EUR_USD_SPOT = rates.EUR;
+          FRESH_AT.MXN_EUR = Date.now();
           recalcFromSend();
         })
         .catch(function(){ clearTimeout(timeoutId); });
     }
-    loadUsdSpotRates();
+
+    // Vuelve a consultar todas las fuentes en vivo (badges + rutas +
+    // anclas). Se llama una vez al cargar la página y luego cada 5 minutos,
+    // para que si alguien deja la pestaña abierta un rato no se quede con
+    // una tasa vieja sin darse cuenta.
+    function refreshAllLiveRates(){
+      loadRateBadge('https://ve.dolarapi.com/v1/dolares/oficial', 'bcv-badge', 'bcv-badge-value');
+      loadRateBadge('https://ve.dolarapi.com/v1/euros/oficial', 'bcv-eur-badge', 'bcv-eur-badge-value');
+      loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value', function(rate){
+        VES_PARALELO = rate;
+        FRESH_AT.VES_PARALELO = Date.now();
+        recalcFromSend(); // por si la ruta Bs -> Euros ya seleccionada dependía de esta tasa
+      });
+      loadLiveRate('https://dolarapi.com/v1/dolares/cripto', 'ARS');
+      loadLiveRate('https://bo.dolarapi.com/v1/dolares/binance', 'BOB');
+      loadUsdSpotRates();
+    }
+    refreshAllLiveRates();
+    setInterval(refreshAllLiveRates, 5 * 60 * 1000); // cada 5 minutos
+  })();
+
+  // ==========================================================================
+  // PANEL INTERNO (solo para Alberto) — goldenlinkremesas.com/?admin=...
+  // ==========================================================================
+  // No es una contraseña real: un sitio estático no puede validarla en serio,
+  // así que cualquiera que revise el código fuente podría encontrar la clave.
+  // Solo evita que alguien llegue aquí por casualidad. Muestra los números
+  // crudos detrás de cada ruta en vivo para confirmar de un vistazo que todo
+  // cuadra antes de que el cliente vea el resultado.
+  (function(){
+    var ADMIN_KEY = "xyzrealmadridadlm2815";
+    var params;
+    try { params = new URLSearchParams(window.location.search); } catch(e){ return; }
+    if(params.get('admin') !== ADMIN_KEY) return;
+
+    var ADMIN_ROUTES = [
+      "ARS>USDT","USDT>ARS","ARS>USD",
+      "BOB>USDT","USDT>BOB","BOB>USD",
+      "ARS>MXN","MXN>ARS","BOB>MXN","MXN>BOB",
+      "EUR>MXN","MXN>EUR","VES>EUR"
+    ];
+
+    var panel = document.createElement('div');
+    panel.id = 'gl-admin-panel';
+    panel.style.cssText = 'position:fixed; top:12px; right:12px; z-index:9999; ' +
+      'max-width:min(360px, calc(100vw - 24px)); max-height:80vh; overflow:auto; ' +
+      'background:#141311; color:#f2f0ec; font:12px/1.5 "IBM Plex Mono",ui-monospace,monospace; ' +
+      'padding:14px 16px; border-radius:10px; box-shadow:0 12px 32px -8px rgba(0,0,0,.5); ' +
+      'border:1px solid rgba(255,255,255,.15);';
+    document.body.appendChild(panel);
+
+    function fmtVal(v){
+      if(v === null || v === undefined || isNaN(v)) return '—';
+      return (Math.abs(v) < 1) ? v.toFixed(6) : v.toFixed(4);
+    }
+
+    function render(){
+      var html = '';
+      html += '<div style="font-weight:700; margin-bottom:8px; color:#d4af37;">Panel interno — GoldenLink</div>';
+      html += '<div style="opacity:.7; margin-bottom:10px;">No visible para clientes. No compartas este link.</div>';
+
+      html += '<div style="font-weight:700; margin-top:6px;">Fuentes crudas</div>';
+      html += '<div>ARS compra/venta: ' + fmtVal(LIVE_RATES.ARS.compra) + ' / ' + fmtVal(LIVE_RATES.ARS.venta) + '</div>';
+      html += '<div>BOB compra/venta: ' + fmtVal(LIVE_RATES.BOB.compra) + ' / ' + fmtVal(LIVE_RATES.BOB.venta) + '</div>';
+      html += '<div>MXN/USD (ancla): ' + fmtVal(MXN_USDT_SPOT) + '</div>';
+      html += '<div>EUR/USD (ancla): ' + fmtVal(EUR_USD_SPOT) + '</div>';
+      html += '<div>VES paralelo: ' + fmtVal(VES_PARALELO) + '</div>';
+
+      html += '<div style="font-weight:700; margin-top:10px;">Rutas en vivo (tasa final)</div>';
+      ADMIN_ROUTES.forEach(function(key){
+        var parts = key.split('>');
+        var rate = getLiveSpecialRate(parts[0], parts[1]);
+        var fresh = freshnessLabel(parts[0], parts[1]);
+        var freshTxt = fresh ? fresh.replace('Tasa en vivo · actualizada ', '') : '';
+        html += '<div style="display:flex; justify-content:space-between; gap:8px; padding:3px 0; ' +
+          'border-top:1px solid rgba(255,255,255,.08);">' +
+          '<span>' + key.replace('>', ' → ') + '</span>' +
+          '<span style="text-align:right;">' + (rate === null ? 'pendiente' : fmtVal(rate)) +
+          (freshTxt ? '<br><span style="opacity:.55; font-size:10.5px;">' + freshTxt + '</span>' : '') +
+          '</span></div>';
+      });
+
+      html += '<div style="margin-top:10px; opacity:.55; font-size:10.5px;">Se actualiza solo cada pocos segundos.</div>';
+      panel.innerHTML = html;
+    }
+
+    render();
+    setInterval(render, 5000); // se refresca solo, sin recargar la página
   })();
 
   document.getElementById('q-submit').addEventListener('click', function(){
