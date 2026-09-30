@@ -707,15 +707,20 @@
     // ARS>MXN, MXN>ARS, BOB>MXN y MXN>BOB no van aquí: se arman encadenando
     // las tasas de arriba con MXN_USDT_SPOT (ver más abajo).
   };
-  // Ancla MXN/USD para las rutas cruzadas con México (ARS<->MXN, BOB<->MXN).
-  // Se llena sola desde exchangerate-api.com (ver loadMxnSpot más abajo) —
-  // NO se usa mx.dolarapi.com porque esa fuente trae el tipo de cambio
-  // OFICIAL de Banxico y se vio desactualizada por semanas (revisado:
+  // Anclas MXN/USD y EUR/USD para las rutas cruzadas con México y Europa.
+  // Se llenan solas desde exchangerate-api.com (ver loadUsdSpotRates más
+  // abajo) — NO se usa mx.dolarapi.com porque esa fuente trae el tipo de
+  // cambio OFICIAL de Banxico y se vio desactualizada por semanas (revisado:
   // mostraba ~16.88 MXN/USD cuando el mercado real ya estaba en ~18.02-18.07).
   // exchangerate-api.com sí se actualiza a diario y no requiere API key.
-  // Mientras esté en null (falló la carga o aún no responde), las 4 rutas
-  // de México se mandan a un asesor — nunca se inventa un número.
+  // Mientras estén en null (falló la carga o aún no responde), las rutas
+  // que dependen de ellas se mandan a un asesor — nunca se inventa un número.
   var MXN_USDT_SPOT = null;
+  var EUR_USD_SPOT = null;
+  // Paralelo de Venezuela (ver badge "Paralelo (ref.)" más abajo) — mismo
+  // valor que ya se mostraba solo como referencia, ahora también se usa
+  // para calcular Bs -> Euros.
+  var VES_PARALELO = null;
   function liveFactor(cfg){
     var f = 1;
     f *= (1 + cfg.sign * cfg.spread);
@@ -755,6 +760,31 @@
       var fromUsdtRate = getLiveSpecialRate("USDT", dstCode); // ARS/BOB por 1 USDT, ya con margen
       if(fromUsdtRate === null) return null;
       return fromUsdtRate / (MXN_USDT_SPOT * 1.005);
+    }
+
+    // Europa: EUR<->MXN usan el cruce implícito MXN/EUR (misma fuente para
+    // ambas, MXN_USDT_SPOT y EUR_USD_SPOT vienen del mismo fetch), con el
+    // 1.3% que cobra Wise y el 7.6% de Alberto. MXN->EUR lleva además el
+    // mismo colchón de 0.5% que ya usamos en MXN->ARS/BOB (mismo patrón:
+    // colchón al vender MXN hacia USD/EUR). Bs->Euros usa el paralelo de
+    // Venezuela (VES_PARALELO) en vez de la ancla MXN, con solo el 7.6%.
+    function mxnPerEur(){
+      if(MXN_USDT_SPOT === null || EUR_USD_SPOT === null) return null;
+      return MXN_USDT_SPOT / EUR_USD_SPOT; // cruce implícito, ej. ~20.48
+    }
+    if(key === "EUR>MXN"){
+      var anchorEM = mxnPerEur();
+      if(anchorEM === null) return null;
+      return anchorEM * (1 - 0.013) * (1 - 0.076);
+    }
+    if(key === "MXN>EUR"){
+      var anchorME = mxnPerEur();
+      if(anchorME === null) return null;
+      return (1 / (anchorME * 1.005)) * (1 - 0.076);
+    }
+    if(key === "VES>EUR"){
+      if(VES_PARALELO === null || EUR_USD_SPOT === null) return null;
+      return (1 / VES_PARALELO) * (1 - 0.076) * EUR_USD_SPOT;
     }
 
     if(!(key in LIVE_MARGIN)) return null;
@@ -923,7 +953,9 @@
 
   (function(){
     if(typeof fetch !== 'function') return;
-    function loadRateBadge(url, badgeId, valueId){
+    // storeFn (opcional): además de pintar el badge, guarda el valor crudo en
+    // una variable que el simulador pueda usar para calcular (ej. VES_PARALELO).
+    function loadRateBadge(url, badgeId, valueId, storeFn){
       var badge = document.getElementById(badgeId);
       var badgeValue = document.getElementById(valueId);
       if(!badge || !badgeValue) return;
@@ -937,12 +969,16 @@
           if(!rate || isNaN(rate)) return;
           badgeValue.textContent = fmt.format(rate);
           badge.style.display = 'inline-flex';
+          if(storeFn) storeFn(rate);
         })
         .catch(function(){ clearTimeout(timeoutId); });
     }
     loadRateBadge('https://ve.dolarapi.com/v1/dolares/oficial', 'bcv-badge', 'bcv-badge-value');
     loadRateBadge('https://ve.dolarapi.com/v1/euros/oficial', 'bcv-eur-badge', 'bcv-eur-badge-value');
-    loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value');
+    loadRateBadge('https://ve.dolarapi.com/v1/dolares/paralelo', 'bcv-par-badge', 'bcv-par-badge-value', function(rate){
+      VES_PARALELO = rate;
+      recalcFromSend(); // por si la ruta Bs -> Euros ya seleccionada dependía de esta tasa
+    });
 
     // Rutas en vivo de Argentina y Bolivia (ver LIVE_RATES / LIVE_MARGIN más
     // arriba). Si falla o tarda, esa ruta se queda mandando a un asesor —
@@ -963,24 +999,26 @@
     loadLiveRate('https://dolarapi.com/v1/dolares/cripto', 'ARS');
     loadLiveRate('https://bo.dolarapi.com/v1/dolares/binance', 'BOB');
 
-    // Ancla MXN/USD para las rutas cruzadas con México (ver MXN_USDT_SPOT
-    // más arriba). Fuente distinta a las de arriba: aquí no hay compra/venta,
-    // solo un tipo de cambio de mercado (se actualiza una vez al día).
-    function loadMxnSpot(){
+    // Ancla MXN/USD y EUR/USD para las rutas cruzadas con México y Europa
+    // (ver MXN_USDT_SPOT / EUR_USD_SPOT más arriba). Una sola llamada trae
+    // ambas — no hay compra/venta aquí, solo un tipo de cambio de mercado
+    // (se actualiza una vez al día).
+    function loadUsdSpotRates(){
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var timeoutId = setTimeout(function(){ if(controller) controller.abort(); }, 6000);
       fetch('https://open.er-api.com/v6/latest/USD', controller ? { signal: controller.signal } : {})
         .then(function(res){ if(!res.ok) throw new Error('bad status'); return res.json(); })
         .then(function(data){
           clearTimeout(timeoutId);
-          var rate = data && data.rates && data.rates.MXN;
-          if(!rate || isNaN(rate)) return;
-          MXN_USDT_SPOT = rate;
+          var rates = data && data.rates;
+          if(!rates) return;
+          if(!isNaN(rates.MXN) && rates.MXN) MXN_USDT_SPOT = rates.MXN;
+          if(!isNaN(rates.EUR) && rates.EUR) EUR_USD_SPOT = rates.EUR;
           recalcFromSend();
         })
         .catch(function(){ clearTimeout(timeoutId); });
     }
-    loadMxnSpot();
+    loadUsdSpotRates();
   })();
 
   document.getElementById('q-submit').addEventListener('click', function(){
