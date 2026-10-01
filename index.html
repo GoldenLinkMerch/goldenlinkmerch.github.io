@@ -640,7 +640,7 @@
   //    Dólar->Brasil y Dólar->Perú) y actualizar GOOGLE_REF con esos números.
   //    SPECIAL se recalcula solo.
   var GOOGLE_REF = {
-    MXN_USD:  0.05464481, // 1 MXN = ? USD, referencia manual — actualizado 01/10/2026 (peso subió a 18.30 MXN/USD, confirmado por Alberto)
+    MXN_USD:  0.05405405, // 1 MXN = ? USD, referencia manual — actualizado 01/10/2026 (peso sigue subiendo; Alberto fijó 18.50 MXN/USD con margen de seguridad, real ~18.40 y sigue subiendo)
     MXN_COP:  183.04278922, // 1 MXN = ? COP, referencia manual — actualizado 01/10/2026 (recalculada desde la tasa publicada 161.70, mismo margen 11.66%)
     EUR_USD:  1.16144,    // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
     USDT_USD: 1.00,       // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
@@ -686,6 +686,14 @@
   // tan vieja está una fuente. MXN_EUR cubre MXN_USDT_SPOT y EUR_USD_SPOT
   // juntos porque ambos vienen del mismo fetch (open.er-api.com).
   var FRESH_AT = { ARS: null, BOB: null, MXN_EUR: null, VES_PARALELO: null };
+  // Si la fuente en vivo de ARS/BOB no trae una fechaActualizacion más
+  // reciente que esto, se trata como si no hubiera dato (manda a un asesor,
+  // nunca se muestra un número viejo como si fuera de ahorita). Agregado
+  // 01/10/2026 porque dolarapi.com y bo.dolarapi.com se quedaron sin
+  // actualizar casi un día entero y el sitio lo seguía mostrando como
+  // "recién actualizado" (mostraba la hora en que NOSOTROS consultamos la
+  // fuente, no la hora real del dato). Ajustable si hace falta.
+  var LIVE_STALE_LIMIT_MS = 6 * 60 * 60 * 1000; // 6 horas
   // Config por ruta. null = todavía no confirmada por Alberto -> se manda a
   // un asesor (nunca se inventa una tasa).
   //   base: "venta" o "compra" de dolarapi — cuál de los dos lados del
@@ -738,7 +746,14 @@
   }
   function liveBase(countryKey, field){
     var v = LIVE_RATES[countryKey] && LIVE_RATES[countryKey][field];
-    return (v === undefined || v === null) ? null : v;
+    if(v === undefined || v === null) return null;
+    // El dato existe, pero si viene de una fuente que ya no se actualiza
+    // (fechaActualizacion de la propia API, no la hora en que nosotros la
+    // consultamos), se descarta igual que si no hubiera dato.
+    var ts = FRESH_AT[countryKey];
+    if(ts === null || ts === undefined) return null;
+    if(Date.now() - ts > LIVE_STALE_LIMIT_MS) return null;
+    return v;
   }
   function getLiveSpecialRate(fromCode, toCode){
     var key = fromCode + ">" + toCode;
@@ -1030,7 +1045,11 @@
           clearTimeout(timeoutId);
           if(!data || isNaN(data.compra) || isNaN(data.venta)) return;
           LIVE_RATES[countryKey] = { compra: data.compra, venta: data.venta };
-          FRESH_AT[countryKey] = Date.now();
+          // Usamos la hora que la propia fuente reporta (fechaActualizacion),
+          // no la hora en que nosotros la consultamos — si no viene o no se
+          // puede leer, caemos a "ahorita" como antes.
+          var apiTs = data.fechaActualizacion ? Date.parse(data.fechaActualizacion) : NaN;
+          FRESH_AT[countryKey] = isNaN(apiTs) ? Date.now() : apiTs;
           recalcFromSend(); // por si la ruta ya seleccionada dependía de esta tasa
         })
         .catch(function(){ clearTimeout(timeoutId); });
@@ -1118,9 +1137,17 @@
       html += '<div style="font-weight:700; margin-bottom:8px; color:#d4af37;">Panel interno — GoldenLink</div>';
       html += '<div style="opacity:.7; margin-bottom:10px;">No visible para clientes. No compartas este link.</div>';
 
+      function srcAge(key){
+        var ts = FRESH_AT[key];
+        if(ts === null || ts === undefined) return ' — sin dato';
+        var mins = Math.round((Date.now() - ts) / 60000);
+        var txt = (mins < 60) ? (mins + ' min') : (Math.round(mins/60) + ' h');
+        var stale = (Date.now() - ts) > LIVE_STALE_LIMIT_MS;
+        return ' <span style="color:' + (stale ? '#e8818b' : '#7fbf7f') + ';">(' + txt + (stale ? ' · VIEJA, no se usa' : '') + ')</span>';
+      }
       html += '<div style="font-weight:700; margin-top:6px;">Fuentes crudas</div>';
-      html += '<div>ARS compra/venta: ' + fmtVal(LIVE_RATES.ARS.compra) + ' / ' + fmtVal(LIVE_RATES.ARS.venta) + '</div>';
-      html += '<div>BOB compra/venta: ' + fmtVal(LIVE_RATES.BOB.compra) + ' / ' + fmtVal(LIVE_RATES.BOB.venta) + '</div>';
+      html += '<div>ARS compra/venta: ' + fmtVal(LIVE_RATES.ARS.compra) + ' / ' + fmtVal(LIVE_RATES.ARS.venta) + srcAge('ARS') + '</div>';
+      html += '<div>BOB compra/venta: ' + fmtVal(LIVE_RATES.BOB.compra) + ' / ' + fmtVal(LIVE_RATES.BOB.venta) + srcAge('BOB') + '</div>';
       html += '<div>MXN/USD (ancla): ' + fmtVal(MXN_USDT_SPOT) + '</div>';
       html += '<div>EUR/USD (ancla): ' + fmtVal(EUR_USD_SPOT) + '</div>';
       html += '<div>VES paralelo: ' + fmtVal(VES_PARALELO) + '</div>';
