@@ -265,6 +265,8 @@
     width:100%; min-width:0; -moz-appearance:textfield;
   }
   .amount-input:disabled{ color:var(--ink-soft); border-bottom-color:transparent; }
+  .amount-input.is-advice{ font-size:16px; font-weight:600; letter-spacing:normal; }
+  @media (max-width:360px){ .amount-input.is-advice{ font-size:14px; } }
   .amount-input::-webkit-outer-spin-button, .amount-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
   .amount-input:focus{ outline:none; border-bottom-color:var(--gold-deep); }
   #sim-output-currency{font-size:16px; color:var(--ink-soft); font-weight:500; flex:none;}
@@ -954,6 +956,7 @@
     rateLine.textContent = "Ruta especial — sin tasa fija";
     output.value = "";
     output.disabled = true;
+    output.classList.add('is-advice');
     output.placeholder = "Consulta con un asesor";
     outputCurrency.textContent = tLabel;
     simNote.textContent = "";
@@ -975,6 +978,7 @@
       return;
     }
     output.disabled = false;
+    output.classList.remove('is-advice');
     outputCurrency.textContent = tLabel;
     var unitRate = currentUnitRate(from, to);
     var result = amount * unitRate;
@@ -995,6 +999,7 @@
       setNonComputable(from, to, fLabel, tLabel, parseFloat(amountInput.value) || 0);
       return;
     }
+    output.classList.remove('is-advice');
     var unitRate = currentUnitRate(from, to);
     var neededFrom = unitRate > 0 ? Math.ceil(amountTo / unitRate) : 0;
     amountInput.value = neededFrom;
