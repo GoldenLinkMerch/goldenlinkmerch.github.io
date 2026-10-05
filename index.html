@@ -1,4 +1,9 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>GoldenLink</title></head><body><title>GoldenLink</title>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>GoldenLink</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
@@ -314,6 +319,8 @@
   }
   .visually-hidden{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
 </style>
+</head>
+<body>
 
 <header>
   <div class="wrap nav-row">
@@ -607,20 +614,20 @@
   // tarjeta "Tasas del día" de GoldenLink. Actualízalo aquí cada vez que cambien las tasas.
   // Últimos valores recibidos: 29/09/2026.
   var CURRENCIES = [
-    { code:"MXN",  label:"México",         rate:49 },     // confirmado 04/10/2026 (sin cambio)
-    { code:"USD",  label:"Estados Unidos", rate:855 },    // confirmado 04/10/2026 (sin cambio)
-    { code:"EUR",  label:"Europa",         rate:976.20 }, // confirmado 04/10/2026 (sin cambio)
-    { code:"BRL",  label:"Brasil",         rate:166.40 }, // confirmado 04/10/2026 (sin cambio)
-    { code:"PEN",  label:"Perú",           rate:257 },    // confirmado 04/10/2026 (sin cambio)
-    { code:"ARS",  label:"Argentina",      rate:0.546 },  // confirmado 04/10/2026 (sin cambio)
-    { code:"COP",  label:"Colombia",       rate:3.70 },   // actualizado 04/10/2026
-    { code:"CLP",  label:"Chile",          rate:0.889 },  // confirmado 04/10/2026 (sin cambio)
+    { code:"MXN",  label:"México",         rate:49.20 }, // actualizado 05/10/2026
+    { code:"USD",  label:"Estados Unidos", rate:858 },   // actualizado 05/10/2026
+    { code:"EUR",  label:"Europa",         rate:975 },   // actualizado 05/10/2026
+    { code:"BRL",  label:"Brasil",         rate:170 },   // actualizado 05/10/2026
+    { code:"PEN",  label:"Perú",           rate:255 },   // actualizado 05/10/2026
+    { code:"ARS",  label:"Argentina",      rate:0.549 }, // actualizado 05/10/2026
+    { code:"COP",  label:"Colombia",       rate:3.70 },  // confirmado 05/10/2026 (sin cambio)
+    { code:"CLP",  label:"Chile",          rate:0.889 }, // confirmado 05/10/2026 (sin cambio)
     { code:"BOB",  label:"Bolivia",        rate:null }, // aún sin tasa comercial — ver isComputable()
-    { code:"ECU",  label:"Ecuador (USD)",  rate:830 },    // confirmado 04/10/2026 (sin cambio, misma tasa que Panamá)
-    { code:"PAN",  label:"Panamá (USD)",   rate:830 },    // confirmado 04/10/2026 (sin cambio, misma tasa que Ecuador)
+    { code:"ECU",  label:"Ecuador (USD)",  rate:840 },   // actualizado 05/10/2026 (misma tasa que Panamá)
+    { code:"PAN",  label:"Panamá (USD)",   rate:840 },   // actualizado 05/10/2026 (misma tasa que Ecuador)
     { code:"VES",  label:"Venezuela (Bs)", rate:1 },
-    { code:"PAYPAL", label:"PayPal",       rate:847.80 }, // confirmado 04/10/2026 (sin cambio)
-    { code:"USDT", label:"USDT",           rate:855 }     // confirmado 04/10/2026 (sin cambio, igualado a USD)
+    { code:"PAYPAL", label:"PayPal",       rate:847.80 }, // confirmado 05/10/2026 (sin cambio)
+    { code:"USDT", label:"USDT",           rate:858 }     // actualizado 05/10/2026 (igualado a nuevo USD)
   ];
   function byCode(c){ for(var i=0;i<CURRENCIES.length;i++){ if(CURRENCIES[i].code===c) return CURRENCIES[i]; } return CURRENCIES[0]; }
 
@@ -642,8 +649,8 @@
   //    Dólar->Brasil y Dólar->Perú) y actualizar GOOGLE_REF con esos números.
   //    SPECIAL se recalcula solo.
   var GOOGLE_REF = {
-    MXN_USD:  0.05473454, // 1 MXN = ? USD, referencia manual — actualizado 04/10/2026 (Alberto confirmó peso a 18.27)
-    MXN_COP:  183.15598823, // 1 MXN = ? COP, referencia manual — actualizado 04/10/2026 (recalculada desde la tasa publicada 161.80, mismo margen 11.66%)
+    MXN_USD:  0.05485464, // 1 MXN = ? USD, referencia manual — actualizado 05/10/2026 (Alberto confirmó peso a 18.23)
+    MXN_COP:  178.85443, // 1 MXN = ? COP, referencia manual — actualizado 05/10/2026 (recalculada desde la tasa publicada 158, mismo margen 11.66%)
     EUR_USD:  1.16144,    // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
     USDT_USD: 1.00,       // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
     USD_BRL:  5.11015,    // 1 USD = ? BRL, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
@@ -1358,4 +1365,5 @@
   document.getElementById('edge-count-label').textContent = EDGES.length + ' rutas activas';
 })();
 </script>
-</body></html>
+</body>
+</html>
