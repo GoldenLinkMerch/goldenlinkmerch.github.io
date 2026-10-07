@@ -614,20 +614,20 @@
   // tarjeta "Tasas del día" de GoldenLink. Actualízalo aquí cada vez que cambien las tasas.
   // Últimos valores recibidos: 29/09/2026.
   var CURRENCIES = [
-    { code:"MXN",  label:"México",         rate:50.20 }, // actualizado 06/10/2026
-    { code:"USD",  label:"Estados Unidos", rate:868 },   // actualizado 06/10/2026
-    { code:"EUR",  label:"Europa",         rate:989.60 }, // actualizado 06/10/2026
-    { code:"BRL",  label:"Brasil",         rate:175.70 }, // actualizado 06/10/2026
-    { code:"PEN",  label:"Perú",           rate:259 },   // actualizado 06/10/2026
-    { code:"ARS",  label:"Argentina",      rate:0.561 }, // actualizado 06/10/2026
-    { code:"COP",  label:"Colombia",       rate:3.60 },  // actualizado 06/10/2026
-    { code:"CLP",  label:"Chile",          rate:0.911 }, // actualizado 06/10/2026
+    { code:"MXN",  label:"México",         rate:50.80 }, // actualizado 07/10/2026
+    { code:"USD",  label:"Estados Unidos", rate:879 },   // actualizado 07/10/2026
+    { code:"EUR",  label:"Europa",         rate:997.50 }, // actualizado 07/10/2026
+    { code:"BRL",  label:"Brasil",         rate:175.30 }, // actualizado 07/10/2026
+    { code:"PEN",  label:"Perú",           rate:260 },   // actualizado 07/10/2026
+    { code:"ARS",  label:"Argentina",      rate:0.565 }, // actualizado 07/10/2026
+    { code:"COP",  label:"Colombia",       rate:3.60 },  // confirmado 07/10/2026 (sin cambio)
+    { code:"CLP",  label:"Chile",          rate:0.908 }, // actualizado 07/10/2026
     { code:"BOB",  label:"Bolivia",        rate:null }, // aún sin tasa comercial — ver isComputable()
-    { code:"ECU",  label:"Ecuador (USD)",  rate:850 },   // actualizado 06/10/2026 (misma tasa que Panamá)
-    { code:"PAN",  label:"Panamá (USD)",   rate:850 },   // actualizado 06/10/2026 (misma tasa que Ecuador)
+    { code:"ECU",  label:"Ecuador (USD)",  rate:850 },   // confirmado 07/10/2026 (sin cambio, misma tasa que Panamá)
+    { code:"PAN",  label:"Panamá (USD)",   rate:850 },   // confirmado 07/10/2026 (sin cambio, misma tasa que Ecuador)
     { code:"VES",  label:"Venezuela (Bs)", rate:1 },
-    { code:"PAYPAL", label:"PayPal",       rate:856.20 }, // actualizado 06/10/2026
-    { code:"USDT", label:"USDT",           rate:868 }     // actualizado 06/10/2026 (igualado a nuevo USD)
+    { code:"PAYPAL", label:"PayPal",       rate:869.50 }, // actualizado 07/10/2026
+    { code:"USDT", label:"USDT",           rate:879 }     // actualizado 07/10/2026 (igualado a nuevo USD)
   ];
   function byCode(c){ for(var i=0;i<CURRENCIES.length;i++){ if(CURRENCIES[i].code===c) return CURRENCIES[i]; } return CURRENCIES[0]; }
 
