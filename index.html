@@ -387,7 +387,7 @@
         <div class="sim-form">
           <div class="field">
             <label for="sim-amount">Monto a enviar</label>
-            <input type="number" id="sim-amount" inputmode="decimal" min="0" step="any" value="100" />
+            <input type="text" id="sim-amount" inputmode="decimal" value="1,000" />
           </div>
           <div class="sim-row2">
             <div class="field">
@@ -409,7 +409,7 @@
             <div class="sim-rate" id="sim-rate-line">1 MXN ≈ 0.00 VES</div>
             <label for="sim-output" class="visually-hidden">Monto a recibir</label>
             <div class="amount-row">
-              <input type="number" class="amount-input num" id="sim-output" inputmode="decimal" min="0" step="any" value="0.00" />
+              <input type="text" class="amount-input num" id="sim-output" inputmode="decimal" value="0" />
               <small id="sim-output-currency">VES</small>
             </div>
             <div class="sim-note" id="sim-note" style="font-size:12px; color:var(--ink-soft); margin-top:4px;"></div>
@@ -898,6 +898,20 @@
   var fmt = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
   var fmtRate = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 4 });
 
+  // Los campos de monto muestran separadores de miles (ej. "50,200"), así que
+  // hay que quitarlos antes de convertir el texto a número, y volver a ponerlos
+  // al mostrar un valor.
+  function parseAmount(str){
+    if(str === null || str === undefined) return 0;
+    var cleaned = String(str).replace(/[^0-9.\-]/g, '');
+    var n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+  function formatAmount(n){
+    if(!isFinite(n)) return '';
+    return fmt.format(n);
+  }
+
   // El simulador funciona en ambos sentidos: si la persona escribe en "Envías"
   // calculamos lo que recibe; si escribe directo en "Recibe" (por ejemplo,
   // "necesito que le lleguen 12,000 Bs"), calculamos cuánto debe enviar —
@@ -976,7 +990,7 @@
   function recalcFromSend(){
     var from = byCode(simFrom.value);
     var to = byCode(simTo.value);
-    var amount = parseFloat(amountInput.value) || 0;
+    var amount = parseAmount(amountInput.value);
     var fLabel = from.code.replace("PAYPAL","USD");
     var tLabel = to.code.replace("PAYPAL","USD");
 
@@ -989,7 +1003,7 @@
     outputCurrency.textContent = tLabel;
     var unitRate = currentUnitRate(from, to);
     var result = amount * unitRate;
-    output.value = result.toFixed(2);
+    output.value = formatAmount(result);
     updateShared(from, to, fLabel, tLabel, unitRate, amount, result);
   }
 
@@ -998,25 +1012,29 @@
   function recalcFromReceive(){
     var from = byCode(simFrom.value);
     var to = byCode(simTo.value);
-    var amountTo = parseFloat(output.value) || 0;
+    var amountTo = parseAmount(output.value);
     var fLabel = from.code.replace("PAYPAL","USD");
     var tLabel = to.code.replace("PAYPAL","USD");
 
     if(!isComputable(from.code, to.code)){
-      setNonComputable(from, to, fLabel, tLabel, parseFloat(amountInput.value) || 0);
+      setNonComputable(from, to, fLabel, tLabel, parseAmount(amountInput.value));
       return;
     }
     output.classList.remove('is-advice');
     var unitRate = currentUnitRate(from, to);
     var neededFrom = unitRate > 0 ? Math.ceil(amountTo / unitRate) : 0;
-    amountInput.value = neededFrom;
+    amountInput.value = formatAmount(neededFrom);
     updateShared(from, to, fLabel, tLabel, unitRate, neededFrom, amountTo);
   }
 
   amountInput.addEventListener('input', recalcFromSend);
   amountInput.addEventListener('change', recalcFromSend);
+  amountInput.addEventListener('focus', function(){ this.value = this.value.replace(/,/g, ''); });
+  amountInput.addEventListener('blur', function(){ this.value = formatAmount(parseAmount(this.value)); });
   output.addEventListener('input', recalcFromReceive);
   output.addEventListener('change', recalcFromReceive);
+  output.addEventListener('focus', function(){ if(!this.disabled) this.value = this.value.replace(/,/g, ''); });
+  output.addEventListener('blur', function(){ if(!this.disabled) this.value = formatAmount(parseAmount(this.value)); });
   [simFrom, simTo].forEach(function(el){ el.addEventListener('change', recalcFromSend); });
   document.getElementById('sim-swap').addEventListener('click', function(){
     var a = simFrom.value; simFrom.value = simTo.value; simTo.value = a; recalcFromSend();
