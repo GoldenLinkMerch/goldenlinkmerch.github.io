@@ -642,12 +642,12 @@
   //    Dólar->Brasil y Dólar->Perú) y actualizar GOOGLE_REF con esos números.
   //    SPECIAL se recalcula solo.
   var GOOGLE_REF = {
-    MXN_USD:  0.05327650506, // 1 MXN = ? USD, referencia manual — actualizado 22/10/2026 (Alberto confirmó peso a 18.77)
-    MXN_COP:  170.93579250, // 1 MXN = ? COP, referencia manual — actualizado 22/10/2026 (recalculada desde la tasa publicada 151, mismo margen 11.66%)
-    EUR_USD:  1.16144,    // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
+    MXN_USD:  0.0532765051, // 1 MXN = ? USD, referencia manual — actualizado 22/10/2026 (Alberto confirmó peso a 18.77)
+    MXN_COP:  170.9304958, // 1 MXN = ? COP, referencia manual — actualizado 22/10/2026 (recalculada desde la tasa publicada 151, mismo margen 11.66%)
+    EUR_USD:  1.11990,    // 1 EUR = ? USD, referencia del 22/10/2026
     USDT_USD: 1.00,       // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
-    USD_BRL:  5.11015,    // 1 USD = ? BRL, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
-    USD_PEN:  3.38326     // 1 USD = ? PEN, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
+    USD_BRL:  5.03130,    // 1 USD = ? BRL, referencia del 22/10/2026
+    USD_PEN:  3.43710     // 1 USD = ? PEN, referencia del 22/10/2026
   };
   var SPECIAL = {
     "MXN>COP":  GOOGLE_REF.MXN_COP * (1 - 0.1166),        // Google - 11.66% (ajustado 30/09/2026, antes -10.04%)
