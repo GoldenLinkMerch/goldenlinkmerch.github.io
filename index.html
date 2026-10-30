@@ -605,20 +605,20 @@
   // tarjeta "Tasas del día" de GoldenLink. Actualízalo aquí cada vez que cambien las tasas.
   // Últimos valores recibidos: 29/09/2026.
   var CURRENCIES = [
-    { code:"MXN",  label:"México",         rate:49 }, // actualizado 29/10/2026
-    { code:"USD",  label:"Estados Unidos", rate:883 },   // actualizado 29/10/2026
-    { code:"EUR",  label:"Europa",         rate:997.20 }, // actualizado 29/10/2026
-    { code:"BRL",  label:"Brasil",         rate:165 }, // actualizado 29/10/2026
-    { code:"PEN",  label:"Perú",           rate:258.60 },   // actualizado 29/10/2026
-    { code:"ARS",  label:"Argentina",      rate:0.552 }, // actualizado 29/10/2026
-    { code:"COP",  label:"Colombia",       rate:3.51 },  // confirmado 29/10/2026 (sin cambio)
-    { code:"CLP",  label:"Chile",          rate:0.904 },  // actualizado 29/10/2026
+    { code:"MXN",  label:"México",         rate:48 }, // actualizado 30/10/2026
+    { code:"USD",  label:"Estados Unidos", rate:868 },   // actualizado 30/10/2026
+    { code:"EUR",  label:"Europa",         rate:982 }, // actualizado 30/10/2026
+    { code:"BRL",  label:"Brasil",         rate:162.50 }, // actualizado 30/10/2026
+    { code:"PEN",  label:"Perú",           rate:256.70 },   // actualizado 30/10/2026
+    { code:"ARS",  label:"Argentina",      rate:0.548 }, // actualizado 30/10/2026
+    { code:"COP",  label:"Colombia",       rate:3.45 },  // actualizado 30/10/2026
+    { code:"CLP",  label:"Chile",          rate:0.893 },  // actualizado 30/10/2026
     { code:"BOB",  label:"Bolivia",        rate:null }, // aún sin tasa comercial — ver isComputable()
-    { code:"ECU",  label:"Ecuador (USD)",  rate:850 },   // confirmado 29/10/2026 (sin cambio, misma tasa que Panamá)
-    { code:"PAN",  label:"Panamá (USD)",   rate:850 },   // confirmado 29/10/2026 (sin cambio, misma tasa que Ecuador)
+    { code:"ECU",  label:"Ecuador (USD)",  rate:840 },   // actualizado 30/10/2026 (misma tasa que Panamá)
+    { code:"PAN",  label:"Panamá (USD)",   rate:840 },   // actualizado 30/10/2026 (misma tasa que Ecuador)
     { code:"VES",  label:"Venezuela (Bs)", rate:1 },
-    { code:"PAYPAL", label:"PayPal",       rate:871.90 }, // actualizado 29/10/2026
-    { code:"USDT", label:"USDT",           rate:883 }     // actualizado 29/10/2026 (sin cambio, igualado a USD)
+    { code:"PAYPAL", label:"PayPal",       rate:860.30 }, // actualizado 30/10/2026
+    { code:"USDT", label:"USDT",           rate:868 }     // actualizado 30/10/2026 (sin cambio, igualado a USD)
   ];
   function byCode(c){ for(var i=0;i<CURRENCIES.length;i++){ if(CURRENCIES[i].code===c) return CURRENCIES[i]; } return CURRENCIES[0]; }
 
@@ -640,8 +640,8 @@
   //    Dólar->Brasil y Dólar->Perú) y actualizar GOOGLE_REF con esos números.
   //    SPECIAL se recalcula solo.
   var GOOGLE_REF = {
-    MXN_USD:  0.05291005, // 1 MXN = ? USD, referencia manual — actualizado 29/10/2026 (Alberto confirmó peso a 18.90)
-    MXN_COP:  171.77949, // 1 MXN = ? COP, referencia manual — actualizado 29/10/2026 (recalculada desde la tasa publicada 151.75, mismo margen 11.66%)
+    MXN_USD:  0.05263158, // 1 MXN = ? USD, referencia manual — actualizado 30/10/2026 (Alberto confirmó peso a 19.00)
+    MXN_COP:  163.23296, // 1 MXN = ? COP, referencia manual — actualizado 30/10/2026 (recalculada desde la tasa publicada 144.20, mismo margen 11.66%)
     EUR_USD:  1.16144,    // 1 EUR = ? USD, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
     USDT_USD: 1.00,       // 1 USDT = ? USD, referencia Google — actualizado 05/09/2026 (USDT suele cotizar ~1.00)
     USD_BRL:  5.11015,    // 1 USD = ? BRL, referencia Google — actualizado 05/09/2026 (USDT ≈ USD)
